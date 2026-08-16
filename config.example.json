@@ -1,0 +1,5 @@
+{
+  "root": "C:/path/to/your/books",
+  "name": "我的书库",
+  "port": 8000
+}

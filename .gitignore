@@ -1,0 +1,15 @@
+# 本地个人配置（含书库路径，勿提交）
+config.json
+
+# 运行时数据（阅读记录 / 标签 / 备注 / 日志）
+data/
+*.log
+*.tmp
+
+# Python 编译缓存
+__pycache__/
+*.pyc
+
+# 系统文件
+.DS_Store
+Thumbs.db

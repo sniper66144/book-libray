@@ -122,6 +122,32 @@ The `data/` directory (reading history, notes, logs) is auto-generated and gitig
 
 ---
 
+## 🧑‍💻 开发与更新 Contributing
+
+本地优化后推送到 GitHub 的流程：
+
+The workflow for pushing local improvements back to GitHub:
+
+```bash
+cd books-app
+git add .              # 暂存所有改动 stage all changes
+git commit -m "优化说明"  # 提交信息写清改动内容
+git push               # 推送（SSH 认证已配置，无需再输密码）
+```
+
+**⚠️ 更新注意事项（个人信息安全）**
+
+- 书库路径等本机信息一律走配置（`config.json` / `--root` / 环境变量 `BOOK_LIBRARY_ROOT`），**不要在代码中硬编码个人路径**。
+- `data/`（阅读记录）与本地 `config.json` 已被 `.gitignore` 排除，**勿用 `git add -f` 强制提交**。
+- 提交前自查个人路径残留（无输出即通过）：
+
+```bash
+# 自查个人路径残留（匹配 Windows/macOS/Linux 用户目录模式，无输出即通过）
+grep -rniE "c:[/\\]users|/users/|/home/" server.py static/ README.md config.example.json
+```
+
+---
+
 ## 📄 开源协议 License
 
 [MIT](LICENSE) · © 2026 ltzhp1130

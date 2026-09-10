@@ -12,6 +12,10 @@
   <!-- 顶栏 -->
   <header class="topbar">
     <div class="brand">📚 我的书库</div>
+    <nav class="topbar-tabs" id="viewTabs" title="切换视图">
+      <button type="button" class="tab-btn active" data-tab="books">📚 书库</button>
+      <button type="button" class="tab-btn" data-tab="shows">🎬 追剧</button>
+    </nav>
     <div class="search-wrap">
       <input id="searchInput" type="search" placeholder="搜索书名 / 系列 / 标签 · 支持模糊 · 多关键词用空格分隔" autocomplete="off">
       <div id="searchDropdown" class="search-dropdown hidden"></div>
@@ -27,6 +31,8 @@
   </header>
 
   <main class="layout">
+    <!-- 视图一：书库（默认） -->
+    <div class="view" id="view-books">
     <!-- 左侧：系列树 -->
     <aside class="sidebar">
       <div class="side-title">系列分类</div>
@@ -62,7 +68,7 @@
 
       <!-- 最近阅读 -->
       <div class="section">
-        <h2 class="section-title">📖 最近阅读</h2>
+        <h2 class="section-title">📖 最近阅读 <span id="readingStat" class="hint"></span></h2>
         <div class="recent-grid">
           <div class="panel">
             <div class="panel-head">最近打开 <span class="hint">（在应用中点击打开时记录）</span></div>
@@ -94,6 +100,19 @@
         </div>
       </div>
     </section>
+    </div><!-- /view-books -->
+
+    <!-- 视图二：追剧（手动清单） -->
+    <div class="view hidden" id="view-shows">
+      <section class="content">
+        <div class="show-header">
+          <h2 class="section-title" id="showHeading">🎬 追剧清单</h2>
+          <button id="showAddBtn" class="btn-primary" title="手动添加一部剧">＋ 添加剧集</button>
+        </div>
+        <div id="showSummary" class="show-summary"></div>
+        <div id="showGroups"></div>
+      </section>
+    </div><!-- /view-shows -->
   </main>
 
   <!-- 书籍详情面板 -->
@@ -103,7 +122,10 @@
       <button id="detailClose" class="btn-ghost">✕</button>
     </div>
     <div class="detail-body">
-      <button id="detailOpen" class="btn-primary">📂 打开书籍</button>
+      <div class="detail-open-row">
+        <button id="detailOpen" class="btn-primary">📂 打开书籍</button>
+        <button id="finishToggle" class="btn-finish">标记读完</button>
+      </div>
       <dl class="detail-meta" id="detailMeta"></dl>
       <div class="detail-block">
         <div class="detail-label">打开记录</div>
@@ -122,6 +144,54 @@
         <div class="detail-actions">
           <span id="noteSaveStatus" class="save-status"></span>
           <button id="noteSaveBtn" class="btn-primary">保存备注与标签</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 剧集详情面板（右侧滑出，独立于书籍面板） -->
+  <div id="showPanel" class="detail-panel hidden">
+    <div class="detail-head">
+      <span id="showPanelTitle">添加剧集</span>
+      <button id="showPanelClose" class="btn-ghost">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="show-form">
+        <label>剧名
+          <input id="showName" type="text" maxlength="100" placeholder="输入剧名…" autocomplete="off">
+        </label>
+        <label>状态
+          <span class="seg" id="showStatusSeg">
+            <button type="button" class="seg-btn" data-status="want">🍿 想看</button>
+            <button type="button" class="seg-btn" data-status="watching">📺 正在看</button>
+            <button type="button" class="seg-btn" data-status="done">✅ 已看完</button>
+          </span>
+        </label>
+        <label>观看进度
+          <span class="ep-row">看到第 <input id="showEpisode" type="number" min="0" step="1"> 集 / 共 <input id="showTotal" type="number" min="0" step="1"> 集</span>
+        </label>
+        <div class="date-row">
+          <label>开始日期 <input id="showStart" type="date"></label>
+          <label>看完日期 <input id="showFinish" type="date"></label>
+        </div>
+        <label>评分
+          <span id="showRatingPicker" class="rating-picker" title="点击评分；再点当前分数可清除"></span>
+        </label>
+        <div class="detail-block">
+          <div class="detail-label">标签</div>
+          <div id="showTags" class="tag-list"></div>
+          <div class="tag-add-row"><input id="showTagInput" type="text" placeholder="输入标签后回车…"></div>
+        </div>
+        <div class="detail-block">
+          <div class="detail-label">备注</div>
+          <textarea id="showNote" rows="4" placeholder="写点观剧随想…"></textarea>
+        </div>
+        <div class="detail-actions">
+          <span id="showSaveStatus" class="save-status"></span>
+          <button id="showSaveBtn" class="btn-primary">添加</button>
+        </div>
+        <div class="detail-delete-row">
+          <button id="showDeleteBtn" class="btn-danger hidden-soft">🗑 删除这部剧</button>
         </div>
       </div>
     </div>

@@ -90,6 +90,9 @@ BOOK_EXTS = {"pdf", "epub", "docx", "doc", "txt", "mobi", "azw3", "djvu"}
 RECENT_DAYS = 30
 # 每本书最多保留的打开记录条数
 MAX_OPEN_PER_BOOK = 50
+# 阅读时长：session 保留窗口（天）与每本最多条数
+READING_KEEP_DAYS = 120
+READING_MAX_SESSIONS = 200
 
 # 统一用 "/" 作为 JSON 中的相对路径分隔符
 SEP = "/"
@@ -125,12 +128,17 @@ def log(msg):
 # ---------------------------------------------------------------------------
 def load_data():
     """读取本地数据文件；不存在或损坏时返回空结构。"""
-    empty = {"history": {}, "notes": {}}
+    empty = {"history": {}, "notes": {}, "reading": {}, "shows": {}}
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         data.setdefault("history", {})
         data.setdefault("notes", {})
+        data.setdefault("reading", {})
+        # 追剧记录（手动清单，不依赖书库文件）；历史脏数据兜底复位
+        data.setdefault("shows", {})
+        if not isinstance(data["shows"], dict):
+            data["shows"] = {}
         return data
     except (OSError, ValueError):
         return empty
@@ -143,6 +151,85 @@ def save_data(data):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, DATA_FILE)
+
+
+# ---------------------------------------------------------------------------
+# 追剧记录：手动清单的增删改辅助（存储于 library.json 顶层 "shows"）
+# ---------------------------------------------------------------------------
+SHOW_STATUSES = {"want", "watching", "done"}
+
+
+def next_show_id(shows):
+    """为新增剧集分配自增 id（现存最大数字 key + 1），返回字符串。"""
+    max_id = 0
+    for k in shows:
+        try:
+            max_id = max(max_id, int(k))
+        except (TypeError, ValueError):
+            continue
+    return str(max_id + 1)
+
+
+def _clean_show(body, cur=None):
+    """
+    把前端提交的剧集字段规范化成统一 record。
+    cur 为 update 时该记录的当前值，用于字段缺省/非法时回退。
+    """
+    cur = cur or {}
+
+    def _pick_str(key, limit):
+        """取值：优先 body 中的 str（去除首尾空白并限长），否则沿用 cur 的 str。"""
+        v = body.get(key)
+        if isinstance(v, str):
+            return v.strip()[:limit]
+        cv = cur.get(key)
+        return cv[:limit] if isinstance(cv, str) else ""
+
+    def _pick_int(key):
+        """取值：body 中是 int 则 >= 0，否则沿用 cur 的整数（缺省 0）。"""
+        v = body.get(key)
+        if isinstance(v, bool):
+            v = None
+        if isinstance(v, int):
+            return max(0, v)
+        cv = cur.get(key)
+        return max(0, int(cv)) if isinstance(cv, int) else 0
+
+    out = {}
+    # 剧名（必填校验由调用方处理）
+    name = body.get("name")
+    out["name"] = name.strip() if isinstance(name, str) else cur.get("name", "")
+    # 状态：限定三值，否则沿用当前/默认想看
+    status = body.get("status", "")
+    out["status"] = status if status in SHOW_STATUSES else cur.get("status", "want")
+    # 进度：整数 >= 0，未知/未填为 0
+    out["episode"] = _pick_int("episode")
+    out["total"] = _pick_int("total")
+    # 日期：仅收 str 并限长，对齐 <input type=date> 的 YYYY-MM-DD
+    out["startDate"] = _pick_str("startDate", 10)
+    out["finishDate"] = _pick_str("finishDate", 10)
+    # 备注 / 标签
+    out["note"] = _pick_str("note", 5000)
+    tags = body.get("tags")
+    if isinstance(tags, list):
+        out["tags"] = [str(t) for t in tags if isinstance(t, str)][:50]
+    else:
+        out["tags"] = list(cur.get("tags", []) or [])
+    # 评分：null 未评，否则 0-10 整数，越界/非法归 None
+    rating = body.get("rating")
+    if rating is None:
+        out["rating"] = cur.get("rating")
+    elif isinstance(rating, bool):
+        out["rating"] = None
+    elif isinstance(rating, int):
+        out["rating"] = rating if 0 <= rating <= 10 else None
+    else:
+        try:
+            r = int(rating)
+            out["rating"] = r if 0 <= r <= 10 else None
+        except (TypeError, ValueError):
+            out["rating"] = None
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +413,27 @@ def scan():
         if safe_path(rel):
             notes[rel] = entry
 
+    # 阅读时长：每本累计 + 近 7/30 天，及总量（供前端统计卡片 / 详情 / 列表展示）
+    now_ts = time.time()
+    reading = {}
+    total_reading = 0
+    recent7_total = 0
+    recent30_total = 0
+    for rel, entry in data.get("reading", {}).items():
+        if not safe_path(rel):
+            continue
+        sessions = entry.get("sessions") or []
+        seconds = int(entry.get("seconds", 0) or 0)
+        r7 = sum(e - s for s, e in sessions if e >= now_ts - 7 * 86400)
+        r30 = sum(e - s for s, e in sessions if e >= now_ts - 30 * 86400)
+        reading[rel] = {"seconds": seconds, "recent7": r7, "recent30": r30}
+        total_reading += seconds
+        recent7_total += r7
+        recent30_total += r30
+    stats["readingSeconds"] = total_reading
+    stats["readingRecent7"] = recent7_total
+    stats["readingRecent30"] = recent30_total
+
     return {
         "root": CONFIG["root"],
         "name": CONFIG["name"],
@@ -334,6 +442,8 @@ def scan():
         "stats": stats,
         "history": history,
         "notes": notes,
+        "reading": reading,
+        "shows": data.get("shows", {}),
     }
 
 
@@ -460,6 +570,35 @@ class Handler(BaseHTTPRequestHandler):
             save_data(data)
             self._json({"ok": True})
             return
+        if parsed.path == "/api/reading":
+            body = self._read_json()
+            rel = body.get("path", "")
+            if not safe_path(rel):
+                self._json({"ok": False, "error": "路径无效或书籍不存在"}, 400)
+                return
+            try:
+                start = int(body.get("start", 0))
+                end = int(body.get("end", 0))
+            except (TypeError, ValueError):
+                self._json({"ok": False, "error": "时间参数无效"}, 400)
+                return
+            delta = end - start
+            if not (0 < delta <= 86400):
+                # 异常的时长（0 / 负 / 超一天）忽略，不记录也不报错
+                self._json({"ok": True})
+                return
+            data = load_data()
+            entry = data["reading"].setdefault(rel, {"seconds": 0, "sessions": []})
+            entry["seconds"] = int(entry.get("seconds", 0) or 0) + delta
+            sessions = entry.get("sessions") or []
+            sessions.append([start, end])
+            cutoff = time.time() - READING_KEEP_DAYS * 86400
+            sessions = [s for s in sessions if s[1] >= cutoff]
+            del sessions[:-READING_MAX_SESSIONS]
+            entry["sessions"] = sessions
+            save_data(data)
+            self._json({"ok": True})
+            return
         if parsed.path == "/api/note":
             body = self._read_json()
             rel = body.get("path", "")
@@ -472,8 +611,45 @@ class Handler(BaseHTTPRequestHandler):
                 entry["tags"] = [t for t in body["tags"] if isinstance(t, str)]
             if isinstance(body.get("note"), str):
                 entry["note"] = body["note"]
+            if isinstance(body.get("finished"), bool):
+                entry["finished"] = body["finished"]
             save_data(data)
             self._json({"ok": True})
+            return
+        if parsed.path == "/api/shows":
+            # 追剧记录（手动清单）：add 新增 / update 更新 / delete 删除
+            body = self._read_json()
+            action = body.get("action", "")
+            data = load_data()
+            shows = data.setdefault("shows", {})
+            if action == "add":
+                record = _clean_show(body)
+                if not record["name"]:
+                    self._json({"ok": False, "error": "剧名不能为空"}, 400)
+                    return
+                sid = next_show_id(shows)
+                record["id"] = sid
+                shows[sid] = record
+                save_data(data)
+                self._json({"ok": True, "record": record})
+                return
+            if action in ("update", "delete"):
+                sid = str(body.get("id", ""))
+                if sid not in shows:
+                    self._json({"ok": False, "error": "剧集不存在"}, 400)
+                    return
+                if action == "delete":
+                    del shows[sid]
+                    save_data(data)
+                    self._json({"ok": True, "id": sid})
+                    return
+                record = _clean_show(body, cur=shows[sid])
+                record["id"] = sid
+                shows[sid] = record
+                save_data(data)
+                self._json({"ok": True, "record": record})
+                return
+            self._json({"ok": False, "error": "未知操作"}, 400)
             return
         self._json({"error": "not found"}, 404)
 

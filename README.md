@@ -19,6 +19,9 @@ Pure Python standard library, **zero third-party dependencies**, bound to localh
 | 📖 最近阅读 | 「最近打开」记录 + 「最近修改」近 30 天文件 |
 | 📊 统计图表 | 各系列数量、格式分布、近 12 个月新增时间线（手写内联 SVG） |
 | 🏷 备注标签 | 每本书可添加标签、写备注，自动保存 |
+| ✅ 读完标记 | 详情面板一键标记「已读完」，列表打勾、侧边栏可按已读完/未读完筛选，统计已读完数量 |
+| ⏱ 阅读时长 | 打开书籍自动估算阅读时长，展示单本累计与近 30 天时长、全库累计与近 7/30 天总量 |
+| 🎬 追剧记录 | 手动维护「想看 / 正在看 / 已看完」的剧集清单：进度（第几集/共几集）、开始与看完日期、评分、标签、备注，顶栏与书库视图切换 |
 | 🔄 自动同步 | 每 5 秒扫描一次，新增/删除/修改后页面自动更新 |
 | 📄 打开书籍 | 用系统默认应用（如 WPS / Preview / Evince）打开本地文件 |
 
@@ -106,9 +109,9 @@ On Windows you can run it windowless via `pythonw.exe` for a background launch.
     └── style.css
 ```
 
-运行时自动生成 `data/` 目录（阅读记录、标签、备注、日志），由 `.gitignore` 排除，**不会进入版本库**。
+运行时自动生成 `data/` 目录（阅读记录、追剧清单、标签、备注、日志），由 `.gitignore` 排除，**不会进入版本库**。
 
-The `data/` directory (reading history, notes, logs) is auto-generated and gitignored.
+The `data/` directory (reading history, shows, notes, logs) is auto-generated and gitignored.
 
 ---
 
@@ -129,7 +132,7 @@ The `data/` directory (reading history, notes, logs) is auto-generated and gitig
 The workflow for pushing local improvements back to GitHub:
 
 ```bash
-cd books-app
+cd book-libray         # 进入仓库根目录 enter the repo root
 git add .              # 暂存所有改动 stage all changes
 git commit -m "优化说明"  # 提交信息写清改动内容
 git push               # 推送（SSH 认证已配置，无需再输密码）
